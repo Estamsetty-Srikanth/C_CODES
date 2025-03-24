@@ -3,77 +3,108 @@
 #include <string.h>
 #include <ctype.h>
 
-typedef struct StudentRecordsSheet {
+// Structure for Student Record
+typedef struct StudentRecord {
     char Name[50];
     unsigned short int Age;
     float Weight;
     float Height;
     unsigned int UID;
     char Country[57];
-    struct StudentRecordsSheet *next;
-} Student_Record;
+    struct StudentRecord *next;
+} StudentRecord;
 
-// Function to convert name to uppercase
-void toUpperCase(char *str) {
+// Function to check if input is a valid positive number
+int check_num(const char *str) {  
+    if (*str == '\0') return 1;  
     while (*str) {
-        *str = toupper(*str);
+        if (!isdigit(*str)) return 1;
         str++;
     }
+    return 0;  
 }
 
-// Function to insert a new student into the linked list
-Student_Record* insertRecord(Student_Record *head, char *name, unsigned short age, float weight, float height, unsigned int uid, char *country) {
-    Student_Record *newNode = (Student_Record *)malloc(sizeof(Student_Record));
+// Function to insert student record into the linked list
+StudentRecord* insertRecord(StudentRecord *head) {
+    StudentRecord *newNode = (StudentRecord*)malloc(sizeof(StudentRecord));
     if (!newNode) {
-        printf("Memory allocation failed\n");
+        printf("Memory allocation failed!\n");
         return head;
     }
-    strcpy(newNode->Name, name);
-    toUpperCase(newNode->Name);
-    newNode->Age = age;
-    newNode->Weight = weight;
-    newNode->Height = height;
-    newNode->UID = uid;
-    strcpy(newNode->Country, country);
-    newNode->next = head;  // Insert at head
+
+    // Keep asking for correct input
+    while (1) {
+        printf("Enter student details (Name Age Weight Height UID Country):\n");
+        if (scanf("%49s %hu %f %f %u %56s", newNode->Name, &newNode->Age, &newNode->Weight, 
+                  &newNode->Height, &newNode->UID, newNode->Country) == 6) {
+            break; // Valid input, exit loop
+        }
+        printf("Invalid input format. Please enter again.\n");
+        while (getchar() != '\n'); // Clear input buffer
+    }
+
+    // Insert at the beginning of the linked list
+    newNode->next = head;
     return newNode;
 }
 
-// Function to write records to a file
-void writeToFile(const char *filename, Student_Record *head) {
-    FILE *file = fopen(filename, "w");
-    if (!file) {
-        printf("Error opening file: %s\n", filename);
-        return;
+// Function to copy a linked list
+StudentRecord* copyList(StudentRecord *head) {
+    if (!head) return NULL;
+
+    StudentRecord *newHead = NULL, *temp = NULL;
+    while (head) {
+        StudentRecord *newNode = (StudentRecord*)malloc(sizeof(StudentRecord));
+        if (!newNode) {
+            printf("Memory allocation failed!\n");
+            return newHead;
+        }
+        *newNode = *head;
+        newNode->next = NULL;
+
+        if (!newHead) newHead = temp = newNode;
+        else {
+            temp->next = newNode;
+            temp = newNode;
+        }
+        head = head->next;
     }
-    Student_Record *temp = head;
-    while (temp) {
-        fprintf(file, "%s,%hu,%.2f,%.2f,%u,%s\n", temp->Name, temp->Age, 
-                temp->Weight, temp->Height, temp->UID, temp->Country);
-        temp = temp->next;
-    }
-    fclose(file);
+    return newHead;
 }
 
-// Sorting functions (Bubble Sort for linked list)
-void sortByField(Student_Record **head, int (*cmp)(Student_Record*, Student_Record*)) {
-    if (!*head) return;
+// Function to swap data between two nodes
+void swapData(StudentRecord *a, StudentRecord *b) {
+    StudentRecord temp = *a;
+    
+    strcpy(a->Name, b->Name);
+    a->Age = b->Age;
+    a->Weight = b->Weight;
+    a->Height = b->Height;
+    a->UID = b->UID;
+    strcpy(a->Country, b->Country);
+
+    strcpy(b->Name, temp.Name);
+    b->Age = temp.Age;
+    b->Weight = temp.Weight;
+    b->Height = temp.Height;
+    b->UID = temp.UID;
+    strcpy(b->Country, temp.Country);
+}
+
+// Optimized Bubble Sort with flag
+void sortList(StudentRecord *head, int (*compare)(StudentRecord *, StudentRecord *)) {
+    if (!head) return;
+    
     int swapped;
-    Student_Record *ptr1, *lptr = NULL;
+    StudentRecord *ptr1, *lptr = NULL;
+
     do {
         swapped = 0;
-        ptr1 = *head;
+        ptr1 = head;
+
         while (ptr1->next != lptr) {
-            if (cmp(ptr1, ptr1->next) > 0) {
-                // Swap data
-                Student_Record temp = *ptr1;
-                *ptr1 = *(ptr1->next);
-                *(ptr1->next) = temp;
-                
-                // Fix next pointers
-                temp.next = ptr1->next->next;
-                ptr1->next->next = ptr1;
-                ptr1->next = temp.next;
+            if (compare(ptr1, ptr1->next) > 0) {
+                swapData(ptr1, ptr1->next);
                 swapped = 1;
             }
             ptr1 = ptr1->next;
@@ -82,101 +113,109 @@ void sortByField(Student_Record **head, int (*cmp)(Student_Record*, Student_Reco
     } while (swapped);
 }
 
-// Comparison functions
-int compareByName(Student_Record *a, Student_Record *b) { return strcmp(a->Name, b->Name); }
-int compareByAge(Student_Record *a, Student_Record *b) { return a->Age - b->Age; }
-int compareByUID(Student_Record *a, Student_Record *b) { return a->UID - b->UID; }
-int compareByWeight(Student_Record *a, Student_Record *b) { return (a->Weight > b->Weight) - (a->Weight < b->Weight); }
-int compareByHeight(Student_Record *a, Student_Record *b) { return (a->Height > b->Height) - (a->Height < b->Height); }
-
-// Function to duplicate a linked list
-Student_Record* duplicateList(Student_Record *head) {
-    Student_Record *newHead = NULL, *tail = NULL;
-    while (head) {
-        Student_Record *newNode = (Student_Record *)malloc(sizeof(Student_Record));
-        if (!newNode) return newHead;
-        *newNode = *head;
-        newNode->next = NULL;
-        if (!newHead) newHead = tail = newNode;
-        else { tail->next = newNode; tail = newNode; }
-        head = head->next;
-    }
-    return newHead;
+// Comparison functions for sorting
+int compareByName(StudentRecord *a, StudentRecord *b) {
+    return strcmp(a->Name, b->Name);
+}
+int compareByAge(StudentRecord *a, StudentRecord *b) {
+    return a->Age - b->Age;
+}
+int compareByUID(StudentRecord *a, StudentRecord *b) {
+    return a->UID - b->UID;
+}
+int compareByWeight(StudentRecord *a, StudentRecord *b) {
+    return (a->Weight > b->Weight) - (a->Weight < b->Weight);
+}
+int compareByHeight(StudentRecord *a, StudentRecord *b) {
+    return (a->Height > b->Height) - (a->Height < b->Height);
 }
 
-// Free linked list memory
-void freeList(Student_Record *head) {
+// Function to write sorted data to a file
+void writeToFile(const char *filename, StudentRecord *head) {
+    FILE *file = fopen(filename, "w");
+    if (!file) {
+        printf("Failed to open file: %s\n", filename);
+        return;
+    }
+
+    StudentRecord *temp = head;
+    while (temp) {
+        fprintf(file, "%s %hu %.2f %.2f %u %s\n", temp->Name, temp->Age, temp->Weight, 
+                temp->Height, temp->UID, temp->Country);
+        temp = temp->next;
+    }
+    fclose(file);
+}
+
+// Function to free memory of linked list
+void freeList(StudentRecord *head) {
+    StudentRecord *temp;
     while (head) {
-        Student_Record *temp = head;
+        temp = head;
         head = head->next;
         free(temp);
     }
 }
 
 int main() {
+    char input[100];
     unsigned int num;
-    printf("Enter number of students: ");
-    if (scanf("%u", &num) != 1) {
-        printf("Invalid input.\n");
-        return 1;
-    }
-    while (getchar() != '\n'); // Clear input buffer
 
-    Student_Record *head = NULL;
-    FILE *file = fopen("MasterRecord.txt", "w");
-    if (!file) {
-        printf("Error opening file\n");
-        return 1;
-    }
-
-    printf("\nEnter student details (Name Age Weight Height UID Country):\n");
-    for (unsigned int i = 0; i < num; i++) {
-        char name[50], country[57];
-        unsigned short age;
-        float weight, height;
-        unsigned int uid;
-        
-        if (scanf("%49s %hu %f %f %u %56s", name, &age, &weight, &height, &uid, country) != 6) {
-            printf("Invalid input format.\n");
-            freeList(head);
-            return 1;
+    // Get number of students
+    while (1) {
+        printf("Enter No of Students: ");
+        scanf("%s", input);
+        if (check_num(input)) {
+            printf("Invalid input! Please enter a positive number.\n");
+        } else {
+            num = atoi(input);
+            break;
         }
-
-        head = insertRecord(head, name, age, weight, height, uid, country);
-        fprintf(file, "%s,%hu,%.2f,%.2f,%u,%s\n", head->Name, head->Age, head->Weight, head->Height, head->UID, head->Country);
     }
-    fclose(file);
 
-    // Sorting and Writing to individual files
-    Student_Record *tempList;
+    // Initialize linked list
+    StudentRecord *head = NULL;
 
-    tempList = duplicateList(head);
-    sortByField(&tempList, compareByName);
-    writeToFile("NAME_MasterRecord.txt", tempList);
-    freeList(tempList);
+    // Insert student records
+    for (unsigned int i = 0; i < num; i++) {
+        head = insertRecord(head);
+    }
 
-    tempList = duplicateList(head);
-    sortByField(&tempList, compareByAge);
-    writeToFile("AGE_MasterRecord.txt", tempList);
-    freeList(tempList);
+    printf("\nStudent records inserted successfully.\n");
 
-    tempList = duplicateList(head);
-    sortByField(&tempList, compareByUID);
-    writeToFile("UID_MasterRecord.txt", tempList);
-    freeList(tempList);
+    // Save original records before sorting
+    writeToFile("MasterRecord.txt", head);
 
-    tempList = duplicateList(head);
-    sortByField(&tempList, compareByWeight);
-    writeToFile("WEIGHT_MasterRecord.txt", tempList);
-    freeList(tempList);
+    // Sort copies of the original linked list to keep master record unchanged
+    StudentRecord *nameSorted = copyList(head);
+    sortList(nameSorted, compareByName);
+    writeToFile("NAME_MasterRecord.txt", nameSorted);
 
-    tempList = duplicateList(head);
-    sortByField(&tempList, compareByHeight);
-    writeToFile("HEIGHT_MasterRecord.txt", tempList);
-    freeList(tempList);
+    StudentRecord *ageSorted = copyList(head);
+    sortList(ageSorted, compareByAge);
+    writeToFile("AGE_MasterRecord.txt", ageSorted);
 
+    StudentRecord *uidSorted = copyList(head);
+    sortList(uidSorted, compareByUID);
+    writeToFile("UID_MasterRecord.txt", uidSorted);
+
+    StudentRecord *weightSorted = copyList(head);
+    sortList(weightSorted, compareByWeight);
+    writeToFile("WEIGHT_MasterRecord.txt", weightSorted);
+
+    StudentRecord *heightSorted = copyList(head);
+    sortList(heightSorted, compareByHeight);
+    writeToFile("HEIGHT_MasterRecord.txt", heightSorted);
+
+    printf("\nRecords sorted and saved to files successfully.\n");
+
+    // Free memory
     freeList(head);
-    printf("Records saved successfully.\n");
+    freeList(nameSorted);
+    freeList(ageSorted);
+    freeList(uidSorted);
+    freeList(weightSorted);
+    freeList(heightSorted);
 
     return 0;
 }
